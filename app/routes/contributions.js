@@ -27,18 +27,15 @@ function ContributionsHandler(db) {
 
     this.handleContributionsUpdate = (req, res, next) => {
 
-        /*jslint evil: true */
-        // Insecure use of eval() to parse inputs
-        const preTax = eval(req.body.preTax);
-        const afterTax = eval(req.body.afterTax);
-        const roth = eval(req.body.roth);
+        // A1 Fix: Safe parsing without eval() - prevents Server-Side JS Injection
+        const parseContribution = (value) => {
+            const parsed = parseInt(value, 10);
+            return isNaN(parsed) ? 0 : Math.max(0, parsed);
+        };
 
-        /*
-        //Fix for A1 -1 SSJS Injection attacks - uses alternate method to eval
-        const preTax = parseInt(req.body.preTax);
-        const afterTax = parseInt(req.body.afterTax);
-        const roth = parseInt(req.body.roth);
-        */
+        const preTax = parseContribution(req.body.preTax);
+        const afterTax = parseContribution(req.body.afterTax);
+        const roth = parseContribution(req.body.roth);
         const {
             userId
         } = req.session;

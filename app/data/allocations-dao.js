@@ -57,25 +57,21 @@ const AllocationsDAO = function(db){
     this.getByUserIdAndThreshold = (userId, threshold, callback) => {
         const parsedUserId = parseInt(userId);
 
+        // A1 Fix: Use safe MongoDB query operators instead of $where
         const searchCriteria = () => {
-
             if (threshold) {
-                /*
-                // Fix for A1 - 2 NoSQL Injection - escape the threshold parameter properly
-                // Fix this NoSQL Injection which doesn't sanitze the input parameter 'threshold' and allows attackers
-                // to inject arbitrary javascript code into the NoSQL query:
-                // 1. 0';while(true){}'
-                // 2. 1'; return 1 == '1
-                // Also implement fix in allocations.html for UX.                             
+                // Parse and validate threshold to prevent NoSQL injection
                 const parsedThreshold = parseInt(threshold, 10);
-                
-                if (parsedThreshold >= 0 && parsedThreshold <= 99) {
-                    return {$where: `this.userId == ${parsedUserId} && this.stocks > ${parsedThreshold}`};
+
+                // Validate threshold is a reasonable number
+                if (isNaN(parsedThreshold) || parsedThreshold < 0 || parsedThreshold > 100) {
+                    throw new Error('Invalid threshold value. Must be a number between 0 and 100.');
                 }
-                throw `The user supplied threshold: ${parsedThreshold} was not valid.`;
-                */
+
+                // A1 Fix: Use safe MongoDB operators ($gt) instead of vulnerable $where
                 return {
-                    $where: `this.userId == ${parsedUserId} && this.stocks > '${threshold}'`
+                    userId: parsedUserId,
+                    stocks: { $gt: parsedThreshold }
                 };
             }
             return {
