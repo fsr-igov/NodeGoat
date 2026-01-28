@@ -22,15 +22,26 @@ function SessionHandler(db) {
         });
     };
 
+    // A7 Fix: Improved admin middleware with proper 403 response
     this.isAdminUserMiddleware = (req, res, next) => {
-        if (req.session.userId) {
-            return userDAO.getUserById(req.session.userId, (err, user) => {
-               return user && user.isAdmin ? next() : res.redirect("/login");
-            });
+        if (!req.session.userId) {
+            console.log("Access denied: No session");
+            return res.redirect("/login");
         }
-        console.log("redirecting to login");
-        return res.redirect("/login");
 
+        userDAO.getUserById(req.session.userId, (err, user) => {
+            if (err) {
+                console.error("Error checking admin status:", err);
+                return next(err);
+            }
+
+            if (!user || !user.isAdmin) {
+                console.log(`Access denied: User ${req.session.userId} attempted admin action`);
+                return res.status(403).send("Access denied: Administrator privileges required.");
+            }
+
+            return next();
+        });
     };
 
     this.isLoggedInMiddleware = (req, res, next) => {
