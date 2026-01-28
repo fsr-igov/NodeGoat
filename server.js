@@ -7,11 +7,10 @@ const session = require("express-session");
 // const csrf = require('csurf');
 const consolidate = require("consolidate"); // Templating library adapter for Express
 const swig = require("swig");
-// const helmet = require("helmet");
+const helmet = require("helmet"); // A5 Fix: Enable helmet for security headers
 const MongoClient = require("mongodb").MongoClient; // Driver for connecting to MongoDB
 const http = require("http");
 const marked = require("marked");
-//const nosniff = require('dont-sniff-mimetype');
 const app = express(); // Web framework to handle routing requests
 const routes = require("./app/routes");
 const { port, db, cookieSecret } = require("./config/config"); // Application config properties
@@ -35,34 +34,39 @@ MongoClient.connect(db, (err, db) => {
     }
     console.log(`Connected to the database`);
 
-    /*
-    // Fix for A5 - Security MisConfig
-    // TODO: Review the rest of helmet options, like "xssFilter"
+    // A5 Fix: Security Headers Configuration
     // Remove default x-powered-by response header
     app.disable("x-powered-by");
 
-    // Prevent opening page in frame or iframe to protect from clickjacking
-    app.use(helmet.frameguard()); //xframe deprecated
-
-    // Prevents browser from caching and storing page
-    app.use(helmet.noCache());
-
-    // Allow loading resources only from white-listed domains
-    app.use(helmet.contentSecurityPolicy()); //csp deprecated
-
-    // Allow communication only on HTTPS
-    app.use(helmet.hsts());
-
-    // TODO: Add another vuln: https://github.com/helmetjs/helmet/issues/26
-    // Enable XSS filter in IE (On by default)
-    // app.use(helmet.iexss());
-    // Now it should be used in hit way, but the README alerts that could be
-    // dangerous, like specified in the issue.
-    // app.use(helmet.xssFilter({ setOnOldIE: true }));
-
-    // Forces browser to only use the Content-Type set in the response header instead of sniffing or guessing it
-    app.use(nosniff());
-    */
+    // A5 Fix: Enable helmet with comprehensive security headers
+    app.use(helmet({
+        // Prevent clickjacking by disabling framing
+        frameguard: { action: 'deny' },
+        // Content Security Policy
+        contentSecurityPolicy: {
+            directives: {
+                defaultSrc: ["'self'"],
+                scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+                styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+                imgSrc: ["'self'", "data:"],
+                connectSrc: ["'self'"],
+                fontSrc: ["'self'", "https://fonts.gstatic.com"],
+                objectSrc: ["'none'"],
+                frameAncestors: ["'none'"]
+            }
+        },
+        // HTTP Strict Transport Security
+        hsts: {
+            maxAge: 31536000,
+            includeSubDomains: true
+        },
+        // Prevent MIME type sniffing
+        noSniff: true,
+        // XSS filter
+        xssFilter: true,
+        // Referrer Policy
+        referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
+    }));
 
     // Adding/ remove HTTP Headers for security
     app.use(favicon(__dirname + "/app/assets/favicon.ico"));
@@ -75,30 +79,18 @@ MongoClient.connect(db, (err, db) => {
     }));
 
     // Enable session management using express middleware
+    // A5 Fix: Hardened session configuration
     app.use(session({
-        // genid: (req) => {
-        //    return genuuid() // use UUIDs for session IDs
-        //},
         secret: cookieSecret,
-        // Both mandatory in Express v4
-        saveUninitialized: true,
-        resave: true
-        /*
-        // Fix for A5 - Security MisConfig
-        // Use generic cookie name
-        key: "sessionId",
-        */
-
-        /*
-        // Fix for A3 - XSS
-        // TODO: Add "maxAge"
+        saveUninitialized: false,
+        resave: false,
+        name: "sessionId", // A5 Fix: Use generic cookie name
         cookie: {
-            httpOnly: true
-            // Remember to start an HTTPS server to get this working
-            // secure: true
+            httpOnly: true, // A5 Fix: Prevent client-side JS access
+            secure: process.env.NODE_ENV === "production", // A5 Fix: HTTPS only in production
+            sameSite: "strict", // A5 Fix: Prevent CSRF via cookies
+            maxAge: 30 * 60 * 1000 // A5 Fix: 30 minute session timeout
         }
-        */
-
     }));
 
     /*
@@ -132,13 +124,9 @@ MongoClient.connect(db, (err, db) => {
     routes(app, db);
 
     // Template system setup
+    // A5 Fix: Enable autoescape to prevent XSS
     swig.setDefaults({
-        // Autoescape disabled
-        autoescape: false
-        /*
-        // Fix for A3 - XSS, enable auto escaping
-        autoescape: true // default value
-        */
+        autoescape: true
     });
 
     // Insecure HTTP connection
