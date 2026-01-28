@@ -121,24 +121,32 @@ MongoClient.connect(db, (err, db) => {
     app.use(express.static(`${__dirname}/app/assets`));
 
 
-    // Initializing marked library
-    // Fix for A9 - Insecure Dependencies
+    // A3 Fix: Configure marked with sanitization for XSS protection
     marked.setOptions({
-        sanitize: true
+        sanitize: true,
+        headerIds: false,
+        mangle: false
     });
-    app.locals.marked = marked;
+
+    // A3 Fix: Wrapper function to sanitize markdown output
+    // Removes script tags, javascript: URLs, and inline event handlers
+    const sanitizeMarkdown = (text) => {
+        if (!text) return '';
+        const rendered = marked(text);
+        return rendered
+            .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+            .replace(/javascript:/gi, '')
+            .replace(/on\w+\s*=/gi, 'data-blocked=');
+    };
+    app.locals.marked = sanitizeMarkdown;
 
     // Application routes
     routes(app, db);
 
     // Template system setup
+    // A3 Fix: Enable autoescape to prevent XSS in templates
     swig.setDefaults({
-        // Autoescape disabled
-        autoescape: false
-        /*
-        // Fix for A3 - XSS, enable auto escaping
-        autoescape: true // default value
-        */
+        autoescape: true
     });
 
     // Insecure HTTP connection

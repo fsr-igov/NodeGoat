@@ -21,14 +21,13 @@ function ProfileHandler(db) {
             if (err) return next(err);
             doc.userId = userId;
 
-            // @TODO @FIXME
-            // while the developer intentions were correct in encoding the user supplied input so it
-            // doesn't end up as an XSS attack, the context is incorrect as it is encoding the firstname for HTML
-            // while this same variable is also used in the context of a URL link element
-            doc.website = ESAPI.encoder().encodeForHTML(doc.website);
-            // fix it by replacing the above with another template variable that is used for 
-            // the context of a URL in a link header
-            // doc.website = ESAPI.encoder().encodeForURL(doc.website)
+            // A3 Fix: Use correct encoding context for different output contexts
+            // HTML context for display text
+            doc.websiteDisplay = ESAPI.encoder().encodeForHTML(doc.website || '');
+            // URL context for href attributes
+            doc.websiteUrl = ESAPI.encoder().encodeForURL(doc.website || '');
+            // Keep original for backward compatibility but sanitized
+            doc.website = ESAPI.encoder().encodeForHTML(doc.website || '');
 
             return res.render("profile", {
                 ...doc,
