@@ -9,16 +9,16 @@ function AllocationsHandler(db) {
     const allocationsDAO = new AllocationsDAO(db);
 
     this.displayAllocations = (req, res, next) => {
-        /*
-        // Fix for A4 Insecure DOR -  take user id from session instead of from URL param
+        // A4 Fix: Always use session userId, not URL parameter
         const { userId } = req.session;
-        */
-        const {
-            userId
-        } = req.params;
-        const {
-            threshold
-        } = req.query;
+        const requestedUserId = req.params.userId;
+        const { threshold } = req.query;
+
+        // A4 Fix: Validate that user can only access their own allocations
+        if (String(requestedUserId) !== String(userId)) {
+            console.log(`IDOR attempt: User ${userId} tried to access allocations of user ${requestedUserId}`);
+            return res.status(403).send("Access denied: You can only view your own allocations.");
+        }
 
         allocationsDAO.getByUserIdAndThreshold(userId, threshold, (err, allocations) => {
             if (err) return next(err);
