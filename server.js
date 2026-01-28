@@ -4,7 +4,7 @@ const express = require("express");
 const favicon = require("serve-favicon");
 const bodyParser = require("body-parser");
 const session = require("express-session");
-// const csrf = require('csurf');
+const csrf = require("csurf"); // A8 Fix: Enable CSRF protection
 const consolidate = require("consolidate"); // Templating library adapter for Express
 const swig = require("swig");
 // const helmet = require("helmet");
@@ -101,16 +101,24 @@ MongoClient.connect(db, (err, db) => {
 
     }));
 
-    /*
-    // Fix for A8 - CSRF
-    // Enable Express csrf protection
-    app.use(csrf());
-    // Make csrf token available in templates
+    // A8 Fix: Enable CSRF protection middleware
+    const csrfProtection = csrf({ cookie: false }); // Use session-based CSRF
+    app.use(csrfProtection);
+
+    // Make CSRF token available in all templates
     app.use((req, res, next) => {
-        res.locals.csrftoken = req.csrfToken();
+        res.locals.csrftoken = req.csrfToken(); // A8: matches template variable name
         next();
     });
-    */
+
+    // A8 Fix: CSRF error handler
+    app.use((err, req, res, next) => {
+        if (err.code === 'EBADCSRFTOKEN') {
+            console.log('CSRF attack detected from:', req.ip);
+            return res.status(403).send('Invalid or missing CSRF token. Form submission rejected.');
+        }
+        next(err);
+    });
 
     // Register templating engine
     app.engine(".html", consolidate.swig);
