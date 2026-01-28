@@ -1,0 +1,1117 @@
+\documentclass[11pt,a4paper]{article}
+
+% ============================================
+% PACKAGES
+% ============================================
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{subcaption}
+
+% ============================================
+% CONFIGURATION
+% ============================================
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    urlcolor=blue,
+    citecolor=blue
+}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    keywordstyle=\color{blue},
+    commentstyle=\color{green!60!black},
+    stringstyle=\color{red},
+    backgroundcolor=\color{gray!10},
+    showstringspaces=false
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{OWASP NodeGoat Security Audit}
+\lhead{M1 AppSec Project}
+\rfoot{Page \thepage}
+
+\titleformat{\section}{\Large\bfseries\color{blue!70!black}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries}{\thesubsubsection}{1em}{}
+
+% ============================================
+% DOCUMENT
+% ============================================
+\begin{document}
+
+% ============================================
+% TITLE PAGE
+% ============================================
+\begin{titlepage}
+    \centering
+    \vspace*{2cm}
+
+    {\Huge\bfseries OWASP NodeGoat\\Security Audit Report\par}
+    \vspace{1cm}
+    {\Large Complete Vulnerability Assessment and Remediation\par}
+
+    \vspace{2cm}
+
+    \includegraphics[width=0.3\textwidth]{images/owasp-logo.png}
+
+    \vspace{2cm}
+
+    {\large\bfseries Project: AppSec M1 --- NodeGoat Audit\par}
+    \vspace{0.5cm}
+
+    \begin{tabular}{ll}
+        \textbf{Group:} & [GROUP\_NAME] \\
+        \textbf{Students:} & [STUDENT\_1] \\
+                          & [STUDENT\_2] \\
+                          & [STUDENT\_3] \\
+        \textbf{Date:} & \today \\
+    \end{tabular}
+
+    \vspace{2cm}
+
+    \begin{tabular}{ll}
+        \toprule
+        \textbf{Environment} & \textbf{Version} \\
+        \midrule
+        VM & Kali Linux 2024.x \\
+        Node.js & v18.x LTS \\
+        MongoDB & 6.x \\
+        NodeGoat & 1.3.0 \\
+        \bottomrule
+    \end{tabular}
+
+    \vfill
+
+    {\small Master 1 --- Application Security Course\par}
+
+\end{titlepage}
+
+% ============================================
+% TABLE OF CONTENTS
+% ============================================
+\tableofcontents
+\newpage
+
+% ============================================
+% EXECUTIVE SUMMARY
+% ============================================
+\section{Executive Summary}
+
+This report presents a comprehensive security audit of the OWASP NodeGoat application, an intentionally vulnerable Node.js web application designed for learning web application security. The audit covers all 10 categories from the OWASP Top 10 (2017 classification as used in NodeGoat), with mappings to the current OWASP Top 10:2025 framework.
+
+\subsection*{Key Findings}
+
+Our assessment identified \textbf{10 critical vulnerability categories} with varying severity levels:
+
+\begin{itemize}[noitemsep]
+    \item \textbf{3 Critical (P1):} A1-Injection, A2-Broken Authentication, A6-Sensitive Data Exposure
+    \item \textbf{4 High (P2):} A3-XSS, A4-IDOR, A7-Access Control, A8-CSRF
+    \item \textbf{3 Medium (P3):} A5-Misconfiguration, A9-Vulnerable Components, A10-Redirects
+\end{itemize}
+
+\subsection*{Remediation Summary}
+
+All vulnerabilities have been addressed through applicative code changes following modern security best practices:
+
+\begin{enumerate}[noitemsep]
+    \item Replaced \texttt{eval()} with safe parsing functions
+    \item Implemented bcrypt password hashing with salt rounds
+    \item Enabled Helmet security headers (CSP, HSTS, X-Frame-Options)
+    \item Added CSRF token protection on all forms
+    \item Implemented proper output encoding for XSS prevention
+    \item Added function-level access control middleware
+    \item Encrypted sensitive data at rest using AES-256-GCM
+    \item Upgraded all vulnerable dependencies
+    \item Implemented whitelist-based redirect validation
+    \item Hardened session configuration with secure cookie attributes
+\end{enumerate}
+
+\subsection*{Residual Risk}
+
+After remediation, residual risks include:
+\begin{itemize}[noitemsep]
+    \item Dependency vulnerabilities may emerge over time (requires continuous monitoring)
+    \item HTTPS not enforced in development environment
+    \item No rate limiting on authentication endpoints (recommended future enhancement)
+\end{itemize}
+
+\newpage
+
+% ============================================
+% MAPPING TABLE
+% ============================================
+\section{Vulnerability Mapping: NodeGoat to OWASP Top 10:2025}
+
+\begin{longtable}{|p{0.8cm}|p{4.5cm}|p{4.5cm}|p{1.2cm}|p{2cm}|}
+\hline
+\textbf{ID} & \textbf{NodeGoat Category (2017)} & \textbf{OWASP 2025 Mapping} & \textbf{Priority} & \textbf{Status} \\
+\hline
+\endfirsthead
+\hline
+\textbf{ID} & \textbf{NodeGoat Category (2017)} & \textbf{OWASP 2025 Mapping} & \textbf{Priority} & \textbf{Status} \\
+\hline
+\endhead
+
+A1 & Injection (SSJS, NoSQL) & A03:2025 Injection & P1 & Fixed \\
+\hline
+A2 & Broken Authentication \& Session Management & A07:2025 Identification and Authentication Failures & P1 & Fixed \\
+\hline
+A3 & Cross-Site Scripting (XSS) & A03:2025 Injection & P2 & Fixed \\
+\hline
+A4 & Insecure Direct Object References & A01:2025 Broken Access Control & P2 & Fixed \\
+\hline
+A5 & Security Misconfiguration & A05:2025 Security Misconfiguration & P3 & Fixed \\
+\hline
+A6 & Sensitive Data Exposure & A02:2025 Cryptographic Failures & P1 & Fixed \\
+\hline
+A7 & Missing Function Level Access Control & A01:2025 Broken Access Control & P2 & Fixed \\
+\hline
+A8 & Cross-Site Request Forgery (CSRF) & A01:2025 Broken Access Control & P2 & Fixed \\
+\hline
+A9 & Using Components with Known Vulnerabilities & A06:2025 Vulnerable and Outdated Components & P3 & Fixed \\
+\hline
+A10 & Unvalidated Redirects and Forwards & A01:2025 Broken Access Control & P3 & Fixed \\
+\hline
+
+\caption{Mapping between NodeGoat vulnerability categories and OWASP Top 10:2025}
+\label{tab:mapping}
+\end{longtable}
+
+\newpage
+
+% ============================================
+% A1 - INJECTION
+% ============================================
+\section{A1 --- Injection}
+
+\subsection{Baseline Assessment (Constats)}
+
+The NodeGoat application contains multiple injection vulnerabilities:
+
+\begin{enumerate}
+    \item \textbf{Server-Side JavaScript Injection (SSJS)}: The \texttt{contributions.js} handler uses \texttt{eval()} to parse user input for contribution percentages.
+    \item \textbf{NoSQL Injection}: The \texttt{allocations-dao.js} uses unsanitized \texttt{\$where} clause allowing arbitrary JavaScript execution.
+    \item \textbf{Log Injection}: User-supplied username is logged without sanitization, enabling CRLF injection.
+\end{enumerate}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.9\textwidth]{images/a1-tutorial-baseline.png}}
+    \caption{C1.1 --- NodeGoat tutorial page explaining A1-Injection vulnerabilities (baseline)}
+    \label{fig:a1-tutorial}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a1-eval-code-baseline.png}}
+    \caption{C1.2 --- Vulnerable \texttt{eval()} usage in contributions.js:32-34 allowing SSJS injection}
+    \label{fig:a1-eval}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a1-nosql-code-baseline.png}}
+    \caption{C1.3 --- Vulnerable \texttt{\$where} clause in allocations-dao.js:78 allowing NoSQL injection}
+    \label{fig:a1-nosql}
+\end{figure}
+
+\subsection{Risk Analysis (Gouvernance)}
+
+\begin{tabular}{|l|p{10cm}|}
+\hline
+\textbf{Assets Impacted} & User data, application logic, server integrity, database \\
+\hline
+\textbf{Threat Actor} & External attacker, malicious authenticated user \\
+\hline
+\textbf{CIA Impact} & \textbf{C}: High (data exfiltration), \textbf{I}: High (data modification), \textbf{A}: High (DoS via infinite loops) \\
+\hline
+\textbf{Probability} & High --- easily exploitable with minimal knowledge \\
+\hline
+\textbf{Impact} & Critical --- full server compromise possible \\
+\hline
+\textbf{Priority} & \textbf{P1 --- Critical} \\
+\hline
+\textbf{OWASP 2025} & A03:2025 Injection \\
+\hline
+\end{tabular}
+
+\vspace{0.5cm}
+
+The \texttt{eval()} function allows arbitrary code execution. An attacker can inject payloads like \texttt{process.exit()} or \texttt{require('child\_process').exec()} to crash or compromise the server. The NoSQL \texttt{\$where} injection enables denial of service via infinite loops.
+
+\subsection{Remediation}
+
+\textbf{Primary Fix}: Replace all dynamic code execution with safe alternatives:
+\begin{itemize}
+    \item Replace \texttt{eval()} with \texttt{parseInt()} for numeric parsing
+    \item Replace \texttt{\$where} with MongoDB query operators (\texttt{\$gt}, \texttt{\$lt}, etc.)
+    \item Sanitize log outputs to prevent CRLF injection
+\end{itemize}
+
+\textbf{Defense in Depth}: Input validation, parameterized queries, principle of least privilege for database connections.
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a1-eval-code-after.png}}
+    \caption{C1.4 --- Fixed code using \texttt{parseInt()} instead of \texttt{eval()} in contributions.js}
+    \label{fig:a1-eval-after}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a1-nosql-code-after.png}}
+    \caption{C1.5 --- Fixed code using safe MongoDB operators in allocations-dao.js}
+    \label{fig:a1-nosql-after}
+\end{figure}
+
+\subsection{Acceptance Criteria \& Proof}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|p{8cm}|l|}
+\hline
+\textbf{ID} & \textbf{Acceptance Criterion} & \textbf{Proof} \\
+\hline
+CA-A1-01 & No \texttt{eval()}, \texttt{Function()}, or \texttt{setTimeout(string)} used on user input & Fig. \ref{fig:a1-eval-after} \\
+\hline
+CA-A1-02 & All MongoDB queries use parameterized operators, no \texttt{\$where} with user data & Fig. \ref{fig:a1-nosql-after} \\
+\hline
+CA-A1-03 & Log outputs sanitize CRLF characters from user input & Fig. \ref{fig:a1-log-after} \\
+\hline
+\end{tabular}
+\caption{Acceptance criteria for A1 --- Injection}
+\label{tab:ca-a1}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a1-log-sanitized-after.png}}
+    \caption{C1.6 --- Log injection test showing CRLF characters replaced with underscores (CA-A1-03)}
+    \label{fig:a1-log-after}
+\end{figure}
+
+\newpage
+
+% ============================================
+% A2 - BROKEN AUTHENTICATION
+% ============================================
+\section{A2 --- Broken Authentication \& Session Management}
+
+\subsection{Baseline Assessment (Constats)}
+
+Multiple authentication and session management vulnerabilities exist:
+
+\begin{enumerate}
+    \item \textbf{Plaintext Passwords}: Passwords stored without hashing in MongoDB
+    \item \textbf{Weak Password Policy}: Regex accepts any 1-20 characters
+    \item \textbf{No Session Regeneration}: Session ID unchanged after login (session fixation)
+    \item \textbf{Username Enumeration}: Different error messages reveal valid usernames
+    \item \textbf{Insecure Session Cookies}: Missing HttpOnly, Secure, SameSite attributes
+\end{enumerate}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.9\textwidth]{images/a2-tutorial-baseline.png}}
+    \caption{C2.1 --- NodeGoat tutorial page explaining A2-Broken Authentication (baseline)}
+    \label{fig:a2-tutorial}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a2-plaintext-password-baseline.png}}
+    \caption{C2.2 --- user-dao.js showing plaintext password storage (line 25)}
+    \label{fig:a2-plaintext}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a2-cookie-devtools-baseline.png}}
+    \caption{C2.3 --- DevTools showing session cookie without HttpOnly/Secure flags (baseline)}
+    \label{fig:a2-cookie-baseline}
+\end{figure}
+
+\subsection{Risk Analysis (Gouvernance)}
+
+\begin{tabular}{|l|p{10cm}|}
+\hline
+\textbf{Assets Impacted} & User credentials, session tokens, personal data, account integrity \\
+\hline
+\textbf{Threat Actor} & External attacker, credential stuffing bots \\
+\hline
+\textbf{CIA Impact} & \textbf{C}: High (credential theft), \textbf{I}: High (account takeover), \textbf{A}: Medium \\
+\hline
+\textbf{Probability} & High --- plaintext passwords easily extracted from DB breach \\
+\hline
+\textbf{Impact} & Critical --- full account compromise \\
+\hline
+\textbf{Priority} & \textbf{P1 --- Critical} \\
+\hline
+\textbf{OWASP 2025} & A07:2025 Identification and Authentication Failures \\
+\hline
+\end{tabular}
+
+\subsection{Remediation}
+
+\textbf{Primary Fix}:
+\begin{itemize}
+    \item Hash passwords using bcrypt with salt rounds
+    \item Enforce strong password policy (8+ chars, mixed case, digit)
+    \item Regenerate session ID on successful login
+    \item Use identical error messages for all auth failures
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a2-bcrypt-code-after.png}}
+    \caption{C2.4 --- Fixed code using bcrypt for password hashing in user-dao.js}
+    \label{fig:a2-bcrypt}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a2-session-regenerate-after.png}}
+    \caption{C2.5 --- Session regeneration implemented in session.js handleLoginRequest}
+    \label{fig:a2-session}
+\end{figure}
+
+\subsection{Acceptance Criteria \& Proof}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|p{8cm}|l|}
+\hline
+\textbf{ID} & \textbf{Acceptance Criterion} & \textbf{Proof} \\
+\hline
+CA-A2-01 & Passwords hashed with bcrypt (cost factor $\geq$ 10) & Fig. \ref{fig:a2-bcrypt} \\
+\hline
+CA-A2-02 & Session ID regenerated after successful authentication & Fig. \ref{fig:a2-session} \\
+\hline
+CA-A2-03 & Session cookie has HttpOnly and SameSite=Strict attributes & Fig. \ref{fig:a2-cookie-after} \\
+\hline
+\end{tabular}
+\caption{Acceptance criteria for A2 --- Broken Authentication}
+\label{tab:ca-a2}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a2-cookie-devtools-after.png}}
+    \caption{C2.6 --- DevTools showing hardened session cookie with HttpOnly, SameSite flags (after fix)}
+    \label{fig:a2-cookie-after}
+\end{figure}
+
+\newpage
+
+% ============================================
+% A3 - XSS
+% ============================================
+\section{A3 --- Cross-Site Scripting (XSS)}
+
+\subsection{Baseline Assessment (Constats)}
+
+\begin{enumerate}
+    \item \textbf{Stored XSS}: User memos rendered via \texttt{marked()} without sanitization
+    \item \textbf{Template Autoescape Disabled}: Swig configured with \texttt{autoescape: false}
+    \item \textbf{Improper Encoding Context}: HTML encoding used for URL context in profile
+\end{enumerate}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.9\textwidth]{images/a3-tutorial-baseline.png}}
+    \caption{C3.1 --- NodeGoat tutorial page explaining A3-XSS vulnerabilities (baseline)}
+    \label{fig:a3-tutorial}
+\end{figure}
+
+\subsection{Risk Analysis (Gouvernance)}
+
+\begin{tabular}{|l|p{10cm}|}
+\hline
+\textbf{Assets Impacted} & User sessions, personal data, application integrity \\
+\hline
+\textbf{Threat Actor} & External attacker, malicious authenticated user \\
+\hline
+\textbf{CIA Impact} & \textbf{C}: High (session theft), \textbf{I}: High (content modification), \textbf{A}: Low \\
+\hline
+\textbf{Priority} & \textbf{P2 --- High} \\
+\hline
+\textbf{OWASP 2025} & A03:2025 Injection \\
+\hline
+\end{tabular}
+
+\subsection{Remediation}
+
+\begin{itemize}
+    \item Enable Swig autoescape globally
+    \item Sanitize marked() output to strip dangerous HTML
+    \item Use context-appropriate encoding (HTML vs URL)
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a3-dompurify-code-after.png}}
+    \caption{C3.4 --- Fixed code with sanitization for markdown output}
+    \label{fig:a3-dompurify}
+\end{figure}
+
+\subsection{Acceptance Criteria \& Proof}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|p{8cm}|l|}
+\hline
+\textbf{ID} & \textbf{Acceptance Criterion} & \textbf{Proof} \\
+\hline
+CA-A3-01 & All template outputs escaped by default (autoescape: true) & Fig. \ref{fig:a3-dompurify} \\
+\hline
+CA-A3-02 & User-generated HTML sanitized with allowlist & Fig. \ref{fig:a3-dompurify} \\
+\hline
+CA-A3-03 & XSS payloads in memos rendered as text, not executed & Fig. \ref{fig:a3-blocked} \\
+\hline
+\end{tabular}
+\caption{Acceptance criteria for A3 --- Cross-Site Scripting}
+\label{tab:ca-a3}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a3-xss-blocked-after.png}}
+    \caption{C3.5 --- Browser showing XSS payload rendered as escaped text (after fix)}
+    \label{fig:a3-blocked}
+\end{figure}
+
+\newpage
+
+% ============================================
+% A4 - IDOR
+% ============================================
+\section{A4 --- Insecure Direct Object References (IDOR)}
+
+\subsection{Baseline Assessment (Constats)}
+
+The allocations endpoint uses the userId from URL parameters instead of the authenticated session, allowing users to view other users' financial allocations.
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.9\textwidth]{images/a4-tutorial-baseline.png}}
+    \caption{C4.1 --- NodeGoat tutorial page explaining A4-IDOR (baseline)}
+    \label{fig:a4-tutorial}
+\end{figure}
+
+\subsection{Risk Analysis (Gouvernance)}
+
+\begin{tabular}{|l|p{10cm}|}
+\hline
+\textbf{Assets Impacted} & Financial portfolio data, investment allocations, user privacy \\
+\hline
+\textbf{Threat Actor} & Authenticated malicious user \\
+\hline
+\textbf{CIA Impact} & \textbf{C}: High (financial data exposure), \textbf{I}: Low, \textbf{A}: Low \\
+\hline
+\textbf{Priority} & \textbf{P2 --- High} \\
+\hline
+\textbf{OWASP 2025} & A01:2025 Broken Access Control \\
+\hline
+\end{tabular}
+
+\subsection{Remediation}
+
+\textbf{Primary Fix}: Always derive userId from authenticated session, never from URL parameters. Add explicit ownership validation.
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a4-allocations-code-after.png}}
+    \caption{C4.4 --- Fixed code using session userId with ownership validation}
+    \label{fig:a4-code-after}
+\end{figure}
+
+\subsection{Acceptance Criteria \& Proof}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|p{8cm}|l|}
+\hline
+\textbf{ID} & \textbf{Acceptance Criterion} & \textbf{Proof} \\
+\hline
+CA-A4-01 & Resource access uses session-based user identification & Fig. \ref{fig:a4-code-after} \\
+\hline
+CA-A4-02 & Attempting to access another user's data returns 403 Forbidden & Fig. \ref{fig:a4-blocked} \\
+\hline
+CA-A4-03 & IDOR attempts are logged for security monitoring & Fig. \ref{fig:a4-code-after} \\
+\hline
+\end{tabular}
+\caption{Acceptance criteria for A4 --- Insecure Direct Object References}
+\label{tab:ca-a4}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a4-idor-blocked-after.png}}
+    \caption{C4.5 --- Access denied when attempting to view another user's allocations (after fix)}
+    \label{fig:a4-blocked}
+\end{figure}
+
+\newpage
+
+% ============================================
+% A5 - SECURITY MISCONFIGURATION
+% ============================================
+\section{A5 --- Security Misconfiguration}
+
+\subsection{Baseline Assessment (Constats)}
+
+\begin{enumerate}
+    \item \textbf{Helmet Disabled}: All security headers middleware commented out
+    \item \textbf{Hardcoded Secrets}: Cookie secret and crypto key in source code
+    \item \textbf{X-Powered-By Header}: Reveals Express framework version
+    \item \textbf{Autoescape Disabled}: Template engine XSS protection off
+\end{enumerate}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.9\textwidth]{images/a5-tutorial-baseline.png}}
+    \caption{C5.1 --- NodeGoat tutorial page explaining A5-Security Misconfiguration (baseline)}
+    \label{fig:a5-tutorial}
+\end{figure}
+
+\subsection{Risk Analysis (Gouvernance)}
+
+\begin{tabular}{|l|p{10cm}|}
+\hline
+\textbf{Assets Impacted} & Application infrastructure, user sessions, server integrity \\
+\hline
+\textbf{CIA Impact} & \textbf{C}: Medium, \textbf{I}: Medium, \textbf{A}: Low \\
+\hline
+\textbf{Priority} & \textbf{P3 --- Medium} \\
+\hline
+\textbf{OWASP 2025} & A05:2025 Security Misconfiguration \\
+\hline
+\end{tabular}
+
+\subsection{Remediation}
+
+\begin{itemize}
+    \item Enable and configure helmet middleware
+    \item Move secrets to environment variables
+    \item Disable x-powered-by header
+    \item Enable Swig autoescape
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a5-helmet-enabled-after.png}}
+    \caption{C5.4 --- Fixed server.js with helmet properly configured}
+    \label{fig:a5-helmet-after}
+\end{figure}
+
+\subsection{Acceptance Criteria \& Proof}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|p{8cm}|l|}
+\hline
+\textbf{ID} & \textbf{Acceptance Criterion} & \textbf{Proof} \\
+\hline
+CA-A5-01 & Security headers present: CSP, X-Frame-Options, HSTS & Fig. \ref{fig:a5-headers-after} \\
+\hline
+CA-A5-02 & No hardcoded secrets in source code (use env vars) & Fig. \ref{fig:a5-env} \\
+\hline
+CA-A5-03 & X-Powered-By header removed from responses & Fig. \ref{fig:a5-headers-after} \\
+\hline
+\end{tabular}
+\caption{Acceptance criteria for A5 --- Security Misconfiguration}
+\label{tab:ca-a5}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a5-headers-devtools-after.png}}
+    \caption{C5.5 --- DevTools showing security headers present (after fix)}
+    \label{fig:a5-headers-after}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a5-env-vars-after.png}}
+    \caption{C5.6 --- Configuration using environment variables for secrets (CA-A5-02)}
+    \label{fig:a5-env}
+\end{figure}
+
+\newpage
+
+% ============================================
+% A6 - SENSITIVE DATA EXPOSURE
+% ============================================
+\section{A6 --- Sensitive Data Exposure}
+
+\subsection{Baseline Assessment (Constats)}
+
+\begin{enumerate}
+    \item \textbf{Unencrypted PII}: SSN, date of birth stored in plaintext
+    \item \textbf{Unencrypted Financial Data}: Bank account and routing numbers in plaintext
+    \item \textbf{Hardcoded Crypto Key}: Encryption key in configuration file
+\end{enumerate}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.9\textwidth]{images/a6-tutorial-baseline.png}}
+    \caption{C6.1 --- NodeGoat tutorial page explaining A6-Sensitive Data Exposure (baseline)}
+    \label{fig:a6-tutorial}
+\end{figure}
+
+\subsection{Risk Analysis (Gouvernance)}
+
+\begin{tabular}{|l|p{10cm}|}
+\hline
+\textbf{Assets Impacted} & SSN, DOB, bank account numbers, financial data \\
+\hline
+\textbf{CIA Impact} & \textbf{C}: Critical (identity theft), \textbf{I}: Low, \textbf{A}: Low \\
+\hline
+\textbf{Priority} & \textbf{P1 --- Critical} \\
+\hline
+\textbf{OWASP 2025} & A02:2025 Cryptographic Failures \\
+\hline
+\end{tabular}
+
+\subsection{Remediation}
+
+\begin{itemize}
+    \item Encrypt sensitive fields using AES-256-GCM
+    \item Use secure key management (environment variables)
+    \item Implement proper IV and authentication tags
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a6-encryption-code-after.png}}
+    \caption{C6.4 --- Fixed profile-dao.js with AES-256-GCM encryption}
+    \label{fig:a6-encryption}
+\end{figure}
+
+\subsection{Acceptance Criteria \& Proof}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|p{8cm}|l|}
+\hline
+\textbf{ID} & \textbf{Acceptance Criterion} & \textbf{Proof} \\
+\hline
+CA-A6-01 & SSN, DOB, bank details encrypted at rest (AES-256) & Fig. \ref{fig:a6-encrypted} \\
+\hline
+CA-A6-02 & Encryption key stored in environment variable & Fig. \ref{fig:a6-encryption} \\
+\hline
+CA-A6-03 & Passwords hashed (not encrypted) & See A2 \\
+\hline
+\end{tabular}
+\caption{Acceptance criteria for A6 --- Sensitive Data Exposure}
+\label{tab:ca-a6}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a6-mongodb-encrypted-after.png}}
+    \caption{C6.5 --- MongoDB showing encrypted SSN and bank details (after fix)}
+    \label{fig:a6-encrypted}
+\end{figure}
+
+\newpage
+
+% ============================================
+% A7 - MISSING ACCESS CONTROL
+% ============================================
+\section{A7 --- Missing Function Level Access Control}
+
+\subsection{Baseline Assessment (Constats)}
+
+The benefits management page, intended for administrators only, is accessible to any authenticated user due to missing role verification.
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.9\textwidth]{images/a7-tutorial-baseline.png}}
+    \caption{C7.1 --- NodeGoat tutorial page explaining A7-Missing Access Control (baseline)}
+    \label{fig:a7-tutorial}
+\end{figure}
+
+\subsection{Risk Analysis (Gouvernance)}
+
+\begin{tabular}{|l|p{10cm}|}
+\hline
+\textbf{Assets Impacted} & Administrative functions, all users' benefit data \\
+\hline
+\textbf{CIA Impact} & \textbf{C}: High (view all users), \textbf{I}: High (modify benefits), \textbf{A}: Low \\
+\hline
+\textbf{Priority} & \textbf{P2 --- High} \\
+\hline
+\textbf{OWASP 2025} & A01:2025 Broken Access Control \\
+\hline
+\end{tabular}
+
+\subsection{Remediation}
+
+\textbf{Primary Fix}: Add \texttt{isAdmin} middleware to all administrative routes.
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a7-routes-after.png}}
+    \caption{C7.4 --- Fixed index.js with isAdmin middleware on /benefits routes}
+    \label{fig:a7-routes-after}
+\end{figure}
+
+\subsection{Acceptance Criteria \& Proof}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|p{8cm}|l|}
+\hline
+\textbf{ID} & \textbf{Acceptance Criterion} & \textbf{Proof} \\
+\hline
+CA-A7-01 & All admin routes protected by isAdmin middleware & Fig. \ref{fig:a7-routes-after} \\
+\hline
+CA-A7-02 & Non-admin users receive 403 Forbidden on admin routes & Fig. \ref{fig:a7-denied} \\
+\hline
+CA-A7-03 & Privilege escalation attempts logged & Fig. \ref{fig:a7-routes-after} \\
+\hline
+\end{tabular}
+\caption{Acceptance criteria for A7 --- Missing Function Level Access Control}
+\label{tab:ca-a7}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a7-benefits-denied-after.png}}
+    \caption{C7.5 --- Regular user denied access to benefits page (403 Forbidden)}
+    \label{fig:a7-denied}
+\end{figure}
+
+\newpage
+
+% ============================================
+% A8 - CSRF
+% ============================================
+\section{A8 --- Cross-Site Request Forgery (CSRF)}
+
+\subsection{Baseline Assessment (Constats)}
+
+CSRF protection is completely disabled:
+
+\begin{enumerate}
+    \item \textbf{CSRF Middleware Disabled}: csurf middleware commented out
+    \item \textbf{No CSRF Tokens}: Forms lack anti-CSRF tokens
+    \item \textbf{No SameSite Cookies}: Session cookies vulnerable to cross-site requests
+\end{enumerate}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.9\textwidth]{images/a8-tutorial-baseline.png}}
+    \caption{C8.1 --- NodeGoat tutorial page explaining A8-CSRF (baseline)}
+    \label{fig:a8-tutorial}
+\end{figure}
+
+\subsection{Risk Analysis (Gouvernance)}
+
+\begin{tabular}{|l|p{10cm}|}
+\hline
+\textbf{Assets Impacted} & User accounts, financial data, profile integrity \\
+\hline
+\textbf{CIA Impact} & \textbf{C}: Low, \textbf{I}: High (unauthorized state changes), \textbf{A}: Low \\
+\hline
+\textbf{Priority} & \textbf{P2 --- High} \\
+\hline
+\textbf{OWASP 2025} & A01:2025 Broken Access Control \\
+\hline
+\end{tabular}
+
+\subsection{Remediation}
+
+\begin{itemize}
+    \item Enable csurf middleware
+    \item Add hidden CSRF token to all forms
+    \item Implement CSRF error handler
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a8-csrf-enabled-after.png}}
+    \caption{C8.4 --- Fixed server.js with CSRF middleware enabled}
+    \label{fig:a8-enabled}
+\end{figure}
+
+\subsection{Acceptance Criteria \& Proof}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|p{8cm}|l|}
+\hline
+\textbf{ID} & \textbf{Acceptance Criterion} & \textbf{Proof} \\
+\hline
+CA-A8-01 & All state-changing forms include CSRF token & Fig. \ref{fig:a8-form-after} \\
+\hline
+CA-A8-02 & Requests without valid CSRF token rejected (403) & Fig. \ref{fig:a8-rejected} \\
+\hline
+CA-A8-03 & Session cookies have SameSite attribute & See A5 \\
+\hline
+\end{tabular}
+\caption{Acceptance criteria for A8 --- Cross-Site Request Forgery}
+\label{tab:ca-a8}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a8-form-with-token-after.png}}
+    \caption{C8.5 --- HTML form showing CSRF token hidden field (after fix)}
+    \label{fig:a8-form-after}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a8-csrf-rejected-after.png}}
+    \caption{C8.6 --- CSRF attack blocked with 403 response (CA-A8-02)}
+    \label{fig:a8-rejected}
+\end{figure}
+
+\newpage
+
+% ============================================
+% A9 - VULNERABLE COMPONENTS
+% ============================================
+\section{A9 --- Using Components with Known Vulnerabilities}
+
+\subsection{Baseline Assessment (Constats)}
+
+Multiple dependencies have known security vulnerabilities:
+
+\begin{enumerate}
+    \item \textbf{bcrypt-nodejs@0.0.3}: Deprecated, weak cryptography
+    \item \textbf{marked@0.3.5}: Multiple XSS vulnerabilities
+    \item \textbf{mongodb@2.1.18}: Outdated driver with security issues
+    \item \textbf{express@4.13.4}: Multiple vulnerabilities in older version
+\end{enumerate}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.9\textwidth]{images/a9-tutorial-baseline.png}}
+    \caption{C9.1 --- NodeGoat tutorial page explaining A9-Vulnerable Components (baseline)}
+    \label{fig:a9-tutorial}
+\end{figure}
+
+\subsection{Risk Analysis (Gouvernance)}
+
+\begin{tabular}{|l|p{10cm}|}
+\hline
+\textbf{Assets Impacted} & Application security, data integrity, server \\
+\hline
+\textbf{CIA Impact} & Varies by CVE --- can be Critical for RCE vulnerabilities \\
+\hline
+\textbf{Priority} & \textbf{P3 --- Medium} \\
+\hline
+\textbf{OWASP 2025} & A06:2025 Vulnerable and Outdated Components \\
+\hline
+\end{tabular}
+
+\subsection{Remediation}
+
+\begin{itemize}
+    \item Run \texttt{npm audit} and upgrade all vulnerable packages
+    \item Replace deprecated packages (bcrypt-nodejs to bcrypt)
+    \item Update to latest stable versions
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a9-package-json-after.png}}
+    \caption{C9.4 --- Updated package.json with secure dependency versions}
+    \label{fig:a9-package-after}
+\end{figure}
+
+\subsection{Acceptance Criteria \& Proof}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|p{8cm}|l|}
+\hline
+\textbf{ID} & \textbf{Acceptance Criterion} & \textbf{Proof} \\
+\hline
+CA-A9-01 & npm audit shows 0 critical and 0 high vulnerabilities & Fig. \ref{fig:a9-audit-after} \\
+\hline
+CA-A9-02 & No deprecated packages (bcrypt-nodejs replaced) & Fig. \ref{fig:a9-package-after} \\
+\hline
+CA-A9-03 & package-lock.json committed with fixed versions & Fig. \ref{fig:a9-lockfile} \\
+\hline
+\end{tabular}
+\caption{Acceptance criteria for A9 --- Vulnerable Components}
+\label{tab:ca-a9}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a9-npm-audit-after.png}}
+    \caption{C9.5 --- npm audit showing reduced vulnerabilities (after fix)}
+    \label{fig:a9-audit-after}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a9-lockfile-after.png}}
+    \caption{C9.6 --- git diff showing package-lock.json updates (CA-A9-03)}
+    \label{fig:a9-lockfile}
+\end{figure}
+
+\newpage
+
+% ============================================
+% A10 - UNVALIDATED REDIRECTS
+% ============================================
+\section{A10 --- Unvalidated Redirects and Forwards}
+
+\subsection{Baseline Assessment (Constats)}
+
+The \texttt{/learn} endpoint redirects to any URL provided in query parameters without validation.
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.9\textwidth]{images/a10-tutorial-baseline.png}}
+    \caption{C10.1 --- NodeGoat tutorial page explaining A10-Unvalidated Redirects (baseline)}
+    \label{fig:a10-tutorial}
+\end{figure}
+
+\subsection{Risk Analysis (Gouvernance)}
+
+\begin{tabular}{|l|p{10cm}|}
+\hline
+\textbf{Assets Impacted} & User trust, credentials (phishing), reputation \\
+\hline
+\textbf{CIA Impact} & \textbf{C}: Medium (credential phishing), \textbf{I}: Low, \textbf{A}: Low \\
+\hline
+\textbf{Priority} & \textbf{P3 --- Medium} \\
+\hline
+\textbf{OWASP 2025} & A01:2025 Broken Access Control \\
+\hline
+\end{tabular}
+
+\subsection{Remediation}
+
+\textbf{Primary Fix}: Implement whitelist-based redirect validation allowing only approved domains.
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a10-redirect-code-after.png}}
+    \caption{C10.4 --- Fixed code with whitelist-based redirect validation}
+    \label{fig:a10-code-after}
+\end{figure}
+
+\subsection{Acceptance Criteria \& Proof}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|p{8cm}|l|}
+\hline
+\textbf{ID} & \textbf{Acceptance Criterion} & \textbf{Proof} \\
+\hline
+CA-A10-01 & Redirects only allowed to whitelisted domains & Fig. \ref{fig:a10-code-after} \\
+\hline
+CA-A10-02 & Non-whitelisted redirect returns 400 error & Fig. \ref{fig:a10-blocked} \\
+\hline
+CA-A10-03 & Blocked redirect attempts are logged & Fig. \ref{fig:a10-code-after} \\
+\hline
+\end{tabular}
+\caption{Acceptance criteria for A10 --- Unvalidated Redirects}
+\label{tab:ca-a10}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=0.85\textwidth]{images/a10-redirect-blocked-after.png}}
+    \caption{C10.5 --- Invalid redirect blocked with error message (after fix)}
+    \label{fig:a10-blocked}
+\end{figure}
+
+\newpage
+
+% ============================================
+% CONCLUSION
+% ============================================
+\section{Conclusion}
+
+\subsection{Summary of Remediation}
+
+This security audit identified and remediated all 10 OWASP vulnerability categories present in the NodeGoat application. The fixes were implemented following modern security best practices compatible with Node.js 18+ and Express 4.x.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|l|l|l|}
+\hline
+\textbf{Category} & \textbf{Primary Fix} & \textbf{Branch} & \textbf{Files} \\
+\hline
+A1 & Replace eval/\$where & fix/a1-injection-prevention & 3 \\
+\hline
+A2 & bcrypt + session regen & fix/a2-authentication-session & 2 \\
+\hline
+A3 & Sanitize + autoescape & fix/a3-xss-prevention & 2 \\
+\hline
+A4 & Session-based userId & fix/a4-idor-access-control & 1 \\
+\hline
+A5 & Helmet + env vars & fix/a5-security-misconfiguration & 2 \\
+\hline
+A6 & AES-256-GCM encryption & fix/a6-sensitive-data & 1 \\
+\hline
+A7 & isAdmin middleware & fix/a7-access-control & 2 \\
+\hline
+A8 & csurf + tokens & fix/a8-csrf-protection & 4 \\
+\hline
+A9 & Dependency upgrades & fix/a9-vulnerable-components & 1 \\
+\hline
+A10 & Whitelist validation & fix/a10-redirect-validation & 1 \\
+\hline
+\end{tabular}
+\caption{Summary of fixes by category}
+\label{tab:summary}
+\end{table}
+
+\subsection{Residual Risk}
+
+Despite comprehensive remediation, some residual risks remain:
+
+\begin{enumerate}
+    \item \textbf{Future Vulnerabilities}: New CVEs may be discovered in current dependencies
+    \item \textbf{Configuration Drift}: Production configurations may diverge from secure defaults
+    \item \textbf{HTTPS Not Enforced}: Application still allows HTTP in development
+    \item \textbf{Rate Limiting}: No protection against brute-force attacks
+\end{enumerate}
+
+\subsection{Future Priorities}
+
+\begin{enumerate}
+    \item Implement automated dependency scanning in CI/CD pipeline
+    \item Deploy with HTTPS and HSTS preload
+    \item Add rate limiting middleware (express-rate-limit)
+    \item Implement comprehensive audit logging
+    \item Conduct penetration testing after deployment
+\end{enumerate}
+
+\vfill
+
+\begin{center}
+\textit{Report generated as part of M1 Application Security coursework.}\\
+\textit{All vulnerabilities were tested in an isolated environment.}
+\end{center}
+
+\end{document}
