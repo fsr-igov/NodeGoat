@@ -66,10 +66,59 @@ const index = (app, db) => {
     app.get("/memos", isLoggedIn, memosHandler.displayMemos);
     app.post("/memos", isLoggedIn, memosHandler.addMemos);
 
+    // A10 Fix: Whitelist-based redirect validation
+    const ALLOWED_REDIRECT_DOMAINS = [
+        "owasp.org",
+        "nodejs.org",
+        "expressjs.com",
+        "mongodb.com",
+        "npmjs.com"
+    ];
+
+    const ALLOWED_INTERNAL_PATHS = [
+        "/dashboard",
+        "/profile",
+        "/tutorial",
+        "/contributions",
+        "/allocations"
+    ];
+
+    const isValidRedirect = (url) => {
+        if (!url) return false;
+
+        // Allow internal paths (must start with / but not //)
+        if (url.startsWith("/") && !url.startsWith("//")) {
+            return ALLOWED_INTERNAL_PATHS.some(path => url.startsWith(path));
+        }
+
+        // Validate external URLs against whitelist
+        try {
+            const parsedUrl = new URL(url);
+            // Only allow http and https protocols
+            if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+                return false;
+            }
+            return ALLOWED_REDIRECT_DOMAINS.some(domain =>
+                parsedUrl.hostname === domain ||
+                parsedUrl.hostname.endsWith("." + domain)
+            );
+        } catch {
+            return false;
+        }
+    };
+
     // Handle redirect for learning resources link
     app.get("/learn", isLoggedIn, (req, res) => {
-        // Insecure way to handle redirects by taking redirect url from query string
-        return res.redirect(req.query.url);
+        const targetUrl = req.query.url;
+
+        if (!isValidRedirect(targetUrl)) {
+            console.log(`Blocked redirect attempt to: ${targetUrl}`);
+            return res.status(400).send(
+                "Invalid redirect URL. Only approved learning resources are allowed."
+            );
+        }
+
+        return res.redirect(targetUrl);
     });
 
     // Research Page
