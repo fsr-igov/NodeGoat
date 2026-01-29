@@ -65,7 +65,7 @@ MongoClient.connect(db, (err, db) => {
         // XSS filter
         xssFilter: true,
         // Referrer Policy
-        referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
+        referrerPolicy: { policy: 'origin-when-cross-origin' }
     }));
 
     // Adding/ remove HTTP Headers for security
